@@ -3,13 +3,14 @@ generator_fsdp_wrap_strategy: size
 real_score_fsdp_wrap_strategy: size
 fake_score_fsdp_wrap_strategy: size
 real_name: Wan2.1-T2V-14B
+fake_name: Wan2.1-T2V-14B
 text_encoder_fsdp_wrap_strategy: size
 denoising_step_list:
 - 1000
 - 750
 - 500
 - 250
-warp_denoising_step: true # need to remove - 0 in denoising_step_list if warp_denoising_step is true
+warp_denoising_step: true
 ts_schedule: false
 num_train_timestep: 1000
 timestep_shift: 5.0
@@ -17,10 +18,10 @@ guidance_scale: 3.0
 denoising_loss_type: flow
 mixed_precision: true
 seed: 0
-wandb_host: WANDB_HOST
-wandb_key: WANDB_KEY
-wandb_entity: WANDB_ENTITY
-wandb_project: WANDB_PROJECT
+wandb_host: https://api.wandb.ai
+wandb_key: e545d8d71527163312def8527c0aec092202dc85
+wandb_entity: modelslab
+wandb_project: wan-dmd
 sharding_strategy: hybrid_full
 lr: 2.0e-06
 lr_critic: 4.0e-07
@@ -34,7 +35,7 @@ ema_weight: 0.99
 ema_start_step: 200
 total_batch_size: 64
 log_iters: 50
-negative_prompt: '色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走'
+negative_prompt: 'overly saturated, overexposed, static, blurry details, subtitles, artistic style, artwork, painting, still frame, overall gray, worst quality, low quality, JPEG compression artifacts, ugly, incomplete, extra fingers, poorly drawn hands, poorly drawn face, deformed, disfigured, malformed limbs, fused fingers, static image, cluttered background, three legs, crowded background, walking backwards'
 dfake_gen_update_ratio: 5
 image_or_video_shape:
 - 1
@@ -48,4 +49,5 @@ gradient_checkpointing: true
 num_frame_per_block: 3
 load_raw_video: false
 model_kwargs:
+  model_name: "Wan2.1-T2V-14B"
   timestep_shift: 5.0

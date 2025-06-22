@@ -25,7 +25,7 @@ class BaseModel(nn.Module):
 
     def _initialize_models(self, args, device):
         self.real_model_name = getattr(args, "real_name", "Wan2.1-T2V-1.3B")
-        self.fake_model_name = getattr(args, "fake_name", "Wan2.1-T2V-1.3B")
+        self.fake_model_name = getattr(args, "fake_name", "Wan2.1-T2V-14B")
 
         self.generator = WanDiffusionWrapper(**getattr(args, "model_kwargs", {}), is_causal=True)
         self.generator.model.requires_grad_(True)

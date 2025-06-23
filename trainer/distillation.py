@@ -142,7 +142,43 @@ class Trainer:
             self.model.generator = torch.compile(self.model.generator, mode="max-autotune-no-cudagraphs", dynamic=False)
             self.model.fake_score = torch.compile(self.model.fake_score, mode="max-autotune-no-cudagraphs", dynamic=False) 
             self.model.real_score = torch.compile(self.model.real_score, mode="max-autotune-no-cudagraphs", dynamic=False)
+
+            logging.info("Warming up the model...")
+
+            warmup_steps = getattr(config, "warmup_steps", 5)
             
+            # Prepare dummy inputs
+            B, F, C, H, W = 1, 21, 16, 60, 104 # Same as in config
+            dummy_noisy = torch.randn(B, F, C, H, W, device=self.device)
+            dummy_prompt_embeds = torch.randn(B, 77, 4096, device=self.device)
+            dummy_conditional_dict = {"prompt_embeds": dummy_prompt_embeds}
+            dummy_timestep = torch.randint(0, 1000, (B, F), device=self.device)
+
+            # Warmup for generator
+            for _ in range(warmup_steps):
+                self.model.generator(
+                    noisy_image_or_video=dummy_noisy,
+                    conditional_dict=dummy_conditional_dict,
+                    timestep=dummy_timestep
+                )
+
+            # Warmup for fake_score
+            for _ in range(warmup_steps):
+                self.model.fake_score(
+                    noisy_image_or_video=dummy_noisy,
+                    conditional_dict=dummy_conditional_dict,
+                    timestep=dummy_timestep,
+                    classify_mode=True
+                )
+
+            # Warmup for real_score
+            for _ in range(warmup_steps):
+                self.model.real_score(
+                    noisy_image_or_video=dummy_noisy,
+                    conditional_dict=dummy_conditional_dict,
+                    timestep=dummy_timestep
+                )
+
             compile_text_encoder = getattr(config, "compile_text_encoder", True)
             if compile_text_encoder:
                 self.model.text_encoder = torch.compile(
@@ -150,6 +186,9 @@ class Trainer:
                     mode="reduce-overhead",
                     dynamic=True
                 )
+                dummy_prompts = ["a video of a dog running"] * B
+                for _ in range(warmup_steps):
+                    self.model.text_encoder(text_prompts=dummy_prompts)
 
         # Step 3: Initialize the dataloader
         if self.config.i2v:

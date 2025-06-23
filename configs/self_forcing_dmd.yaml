@@ -51,3 +51,6 @@ load_raw_video: false
 model_kwargs:
   model_name: "Wan2.1-T2V-14B"
   timestep_shift: 5.0
+compile_model: true
+optimizer_type: adamw8bit
+compile_text_encoder: true

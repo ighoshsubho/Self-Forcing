@@ -16,7 +16,11 @@ import wandb
 import time
 import os
 
-
+try:
+    from torchao.optim import AdamW8bit, AdamW4bit, AdamWFp8
+except ImportError:
+    AdamW8bit = AdamW4bit = AdamWFp8 = None
+    
 class Trainer:
     def __init__(self, config):
         self.config = config
@@ -103,21 +107,49 @@ class Trainer:
             self.model.vae = self.model.vae.to(
                 device=self.device, dtype=torch.bfloat16 if config.mixed_precision else torch.float32)
 
-        self.generator_optimizer = torch.optim.AdamW(
-            [param for param in self.model.generator.parameters()
-             if param.requires_grad],
+        # Select optimizer class based on config
+        opt_type = getattr(config, "optimizer_type", "adamw").lower()
+        if opt_type == "adamw8bit":
+            assert AdamW8bit is not None, "torchao is not installed or AdamW8bit not available"
+            OptimizerClass = AdamW8bit
+        elif opt_type == "adamw4bit":
+            assert AdamW4bit is not None, "torchao is not installed or AdamW4bit not available"
+            OptimizerClass = AdamW4bit
+        elif opt_type == "adamwfp8":
+            assert AdamWFp8 is not None, "torchao is not installed or AdamWFp8 not available"
+            OptimizerClass = AdamWFp8
+        else:
+            OptimizerClass = torch.optim.AdamW
+
+        self.generator_optimizer = OptimizerClass(
+            [param for param in self.model.generator.parameters() if param.requires_grad],
             lr=config.lr,
             betas=(config.beta1, config.beta2),
-            weight_decay=config.weight_decay
+            weight_decay=config.weight_decay,
+            bf16_stochastic_round=True # Helps in training stability if using bfloat16
         )
 
-        self.critic_optimizer = torch.optim.AdamW(
-            [param for param in self.model.fake_score.parameters()
-             if param.requires_grad],
+        self.critic_optimizer = OptimizerClass(
+            [param for param in self.model.fake_score.parameters() if param.requires_grad],
             lr=config.lr_critic if hasattr(config, "lr_critic") else config.lr,
             betas=(config.beta1_critic, config.beta2_critic),
-            weight_decay=config.weight_decay
+            weight_decay=config.weight_decay,
+            bf16_stochastic_round=True # Helps in training stability if using bfloat16
         )
+
+        # Compile model if requested
+        if getattr(config, "compile_model", False):
+            self.model.generator = torch.compile(self.model.generator, mode="max-autotune-no-cudagraphs", dynamic=False)
+            self.model.fake_score = torch.compile(self.model.fake_score, mode="max-autotune-no-cudagraphs", dynamic=False) 
+            self.model.real_score = torch.compile(self.model.real_score, mode="max-autotune-no-cudagraphs", dynamic=False)
+            
+            compile_text_encoder = getattr(config, "compile_text_encoder", True)
+            if compile_text_encoder:
+                self.model.text_encoder = torch.compile(
+                    self.model.text_encoder, 
+                    mode="reduce-overhead",
+                    dynamic=True
+                )
 
         # Step 3: Initialize the dataloader
         if self.config.i2v:
